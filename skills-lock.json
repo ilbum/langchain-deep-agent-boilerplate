@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "skills": {
+    "deep-agents-core": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/deep-agents-core/SKILL.md",
+      "computedHash": "78899a8217572be9156b0c03f280fea7c250ce29e89a87fc18499766ec67159c"
+    },
+    "deep-agents-memory": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/deep-agents-memory/SKILL.md",
+      "computedHash": "54e4fd1e876f5e13bee1b52812a84befe00e8336c19d32766557fcb84c5ecf49"
+    },
+    "deep-agents-orchestration": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/deep-agents-orchestration/SKILL.md",
+      "computedHash": "5b039d2c10ef3bd6f6044c70c123060860dc1e1a49c0dc5cc12dde7cd67a3b75"
+    },
+    "diagnose": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnose/SKILL.md",
+      "computedHash": "15939a26f86edec2d4862042b8564e5a062cb81d04e047a0cea6305c8830b5f5"
+    },
+    "framework-selection": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/framework-selection/SKILL.md",
+      "computedHash": "4077205bed91c048ba47f0db1bd66930bdbdd04e5195dc3d5b265272c5059cd1"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea"
+    },
+    "handoff": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/handoff/SKILL.md",
+      "computedHash": "1a78d774f8a59db5daa6e65e20a6596872fa8cde769f9a6e3a09b678dd5ae8cc"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
+    },
+    "langchain-dependencies": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langchain-dependencies/SKILL.md",
+      "computedHash": "d11337493fa4828c12d2d1793fbdf3bb0d5ae67763a03e98b0f1aa3d0ff6825b"
+    },
+    "langchain-fundamentals": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langchain-fundamentals/SKILL.md",
+      "computedHash": "5a1ded1b185ed95aab2b795f6134ce1ea9c19dddc5d5c8f291b31c0db4f0e379"
+    },
+    "langchain-middleware": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langchain-middleware/SKILL.md",
+      "computedHash": "f8b6897ba1f027d56ff9fffa72d4d27d8e048232fe1e1c13e219df98969d55b0"
+    },
+    "langchain-rag": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langchain-rag/SKILL.md",
+      "computedHash": "53fa807b2094c4ee9136ff23a9330321c1a22959870e4a1f7bd53b753b623f94"
+    },
+    "langgraph-cli": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langgraph-cli/SKILL.md",
+      "computedHash": "dec48033a9a80c8d8826d0d4303dfc339a0a9145f3266035663104357b2d9c8f"
+    },
+    "langgraph-fundamentals": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langgraph-fundamentals/SKILL.md",
+      "computedHash": "790dd42d79190a6db6a7a82ac9b03fa371402a47d91ff88c1e2731b1ceff1d29"
+    },
+    "langgraph-human-in-the-loop": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langgraph-human-in-the-loop/SKILL.md",
+      "computedHash": "283821ddcbdefb404d5e9c95149364c0962857a6f1e90db33ee5a0062500a88a"
+    },
+    "langgraph-persistence": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/langgraph-persistence/SKILL.md",
+      "computedHash": "0e14611b0310a7a30e9977ba99b00a11b7ea63ebdd7b0c490d03040349ead0ed"
+    },
+    "managed-deep-agents": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/managed-deep-agents/SKILL.md",
+      "computedHash": "e034c44bf34dd2cef494fb223a18ff0d65836ea98e61a8d6b16d1a1306535ad6"
+    },
+    "swarm": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "skillPath": "config/skills/swarm/SKILL.md",
+      "computedHash": "4091bd7cf88d408a0724d4cc2be2c0c0fdf6fbe4bd3e700c4cabed58900823bb"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "15a7b5e36383ebadb2dec5e586679e55e9663d292da418926b8da6fc0ef27d84"
+    },
+    "to-prd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-prd/SKILL.md",
+      "computedHash": "a6d6d475f1d01c201937fa0c306e55b7056b02023ad615bc92f57514e831dd31"
+    }
+  }
+}
