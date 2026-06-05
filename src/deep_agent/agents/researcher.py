@@ -14,9 +14,10 @@ You can use any of the tools provided to you to find resources that can help ans
 </Task>
 
 <Available Tools>
-You have access to two main tools:
-1. **search**: For conducting web searches to gather information
-2. **think_tool**: For reflection and strategic planning during research
+You have access to three tools:
+1. **search**: Conduct web searches; each result is saved to a file and you receive a ≤150-word summary
+2. **read_file(path)**: Read the full content of a saved search result file — use this before synthesizing
+3. **think_tool**: Reflect on findings and plan next steps
 
 **CRITICAL: Use think_tool after each search to reflect on results and plan next steps**
 </Available Tools>
@@ -29,6 +30,7 @@ Think like a human researcher with limited time. Follow these steps:
 3. **After each search, pause and assess** - Do I have enough to answer? What's still missing?
 4. **Execute narrower searches as you gather information** - Fill in the gaps
 5. **Stop when you can answer confidently** - Don't keep searching for perfection
+6. **Before writing your final report** - Use read_file() on the 2–3 most relevant saved files to ground your synthesis in full source content, not just summaries
 </Instructions>
 
 <Hard Limits>
@@ -53,11 +55,25 @@ After each search tool call, use think_tool to analyze the results:
 </Show Your Thinking>
 
 <Final Response>
-When you have finished researching, write a comprehensive synthesis as your final message.
+When you have finished researching, use read_file() on the most relevant saved files, then write
+your synthesis as your final message using this structure:
+
+## Summary
+2–3 sentence executive summary of the key answer.
+
+## Key Findings
+- Bullet points: the most important facts, figures, or conclusions
+- Each point should be self-contained and specific
+
+## Detailed Analysis
+Organized sections covering the topic thoroughly. Use subheadings where the topic has distinct aspects.
+Pull specific details, quotes, and data from the full file content you read — not just the summaries.
+
+## Sources
+- [Title or description](URL) — one line on why this source is relevant
 
 IMPORTANT: Your final message is the ONLY output the main agent receives — it cannot read any files
-you wrote during research. Include all key findings, sources, and conclusions directly in your response.
-Do NOT end with a file reference or tell the main agent to "read the file" — put the content here.
+you wrote during research. Do NOT end with a file reference or tell the main agent to "read the file."
 </Final Response>
 """
 

@@ -1,6 +1,7 @@
 import os
 
 from deepagents import create_deep_agent
+from deepagents.backends import LocalShellBackend
 
 from deep_agent.tools import think_tool
 from deep_agent.agents import subagents
@@ -49,10 +50,12 @@ parallel agents per iteration.
 - *Example*: "Research X, write a Google Doc, and email the link" → research agent → doc-writer → email agent
 
 **Important Reminders:**
-- Each **task** call creates a dedicated sub-agent with isolated context
-- Sub-agents can't see each other's work — provide complete standalone instructions
-- The task result message IS the sub-agent's output — do NOT call read_file() on paths the sub-agent
-  mentioned; those files exist only in the sub-agent's ephemeral state and are not accessible here
+- Each **task** call creates a dedicated sub-agent with isolated message context
+- Sub-agents can't see each other's message history — provide complete standalone instructions
+- The task result message is the sub-agent's synthesized output. Sub-agents share the same
+  filesystem backend: files a sub-agent writes persist and are accessible here via read_file()
+  and grep. Use this when: the summary is insufficient for the next step, you need source detail
+  before passing to an action agent, or you want to quality-check output before acting on it
 - Use clear, specific language — avoid acronyms or abbreviations in task descriptions
 </Scaling Rules>"""
 
@@ -60,6 +63,7 @@ graph = create_deep_agent(
     model=os.environ.get("MAIN_MODEL", "openai:gpt-5.5"),
     tools=[think_tool],
     subagents=subagents,
+    backend=LocalShellBackend(inherit_env=True, virtual_mode=True),
     system_prompt=_ORCHESTRATOR_INSTRUCTIONS.format(
         subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),
         max_concurrent_agents=int(os.environ.get("MAX_CONCURRENT_AGENTS", 3)),
