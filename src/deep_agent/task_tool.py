@@ -27,7 +27,7 @@ class SubAgent(TypedDict):
     tools: NotRequired[list[str]]
 
 
-def _create_task_tool(tools, subagents: list[SubAgent], model, state_schema):
+def create_task_tool(tools, subagents: list[SubAgent], model, state_schema):
     """Create a task delegation tool that enables context isolation through sub-agents.
 
     This function implements the core pattern for spawning specialized sub-agents with
