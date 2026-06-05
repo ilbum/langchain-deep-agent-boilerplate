@@ -4,8 +4,16 @@ Public interface: subagents — a list of dicts ready to pass to create_deep_age
 
 To add a new subagent:
   1. Write a private _your_subagent() function that returns a dict with
-     name, description, system_prompt, and (optionally) tools.
-  2. Append it to the subagents list at the bottom.
+     name, description, system_prompt, and tools.
+  2. If any tool is irreversible (sends messages, writes to external systems,
+     deletes data), add interrupt_on={"tool_name": True} to require user
+     approval before the tool fires. The framework handles pause and resume —
+     the user can approve, edit the input, or reject.
+  3. Append it to the subagents list at the bottom.
+
+Tool modules follow the convention: one *_tools.py file per integration
+(e.g. slack_tools.py, email_tools.py). Tools shared across the orchestrator
+and sub-agents live in tools.py.
 """
 
 import os
