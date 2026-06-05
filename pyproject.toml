@@ -9,7 +9,7 @@ dependencies = [
     "langchain>=1.0,<2.0",
     "langchain-core>=1.0,<2.0",
     "langgraph>=1.0,<2.0",
-    "langsmith>=0.3.0",
+    "langsmith>=0.3.4",
     "langchain-openai",
     "langchain-ollama",
     "langchain-tavily",
@@ -22,3 +22,17 @@ dependencies = [
     "google-auth-oauthlib>=1.4.0",
     "google-api-python-client>=2.0",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "langsmith[pytest]",
+    "agentevals",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that call real APIs (deselected by default)",
+    "langsmith: tests tracked in LangSmith (deselected by default)",
+]
+addopts = "-m 'not integration and not langsmith'"
