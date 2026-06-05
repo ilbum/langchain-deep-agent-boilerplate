@@ -2,7 +2,8 @@
 
 Usage:
     uv run scripts/run.py "your message here"
-    uv run scripts/run.py  # prompts for input
+    uv run scripts/run.py           # prompts for input
+    uv run scripts/run.py -y "..."  # auto-approve all interrupts
 
 When a tool requires approval (interrupt_on), you will be prompted:
     approve  — let the tool run
@@ -12,6 +13,10 @@ When a tool requires approval (interrupt_on), you will be prompted:
 import json
 import sys
 import uuid
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from langchain_core.messages import AIMessageChunk, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import MemorySaver
@@ -26,6 +31,12 @@ def _extract_text(content) -> str:
     if isinstance(content, list):
         return "".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
     return content or ""
+
+
+def _auto_approve(action_requests: list) -> dict:
+    for req in action_requests:
+        print(f"\n[auto-approve] {req.get('name', 'unknown')}")
+    return {"decisions": [{"type": "approve"} for _ in action_requests]}
 
 
 def _ask_approval(action_requests: list) -> dict:
@@ -92,7 +103,7 @@ def _stream_and_collect(inputs, config) -> list:
     return interrupts
 
 
-def run(user_input: str) -> None:
+def run(user_input: str, *, yes: bool = False) -> None:
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
     inputs = {"messages": [HumanMessage(content=user_input)]}
 
@@ -107,10 +118,10 @@ def run(user_input: str) -> None:
             break
 
         # Key resume by interrupt ID — required when multiple interrupts fire concurrently
+        handler = _auto_approve if yes else _ask_approval
         resume = {}
         for intr in interrupts:
-            resume_payload = _ask_approval(intr.value["action_requests"])
-            resume[intr.id] = resume_payload
+            resume[intr.id] = handler(intr.value["action_requests"])
 
         inputs = Command(resume=resume)
 
@@ -118,9 +129,9 @@ def run(user_input: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        user_input = " ".join(sys.argv[1:])
-    else:
-        user_input = input("Message: ").strip()
+    args = sys.argv[1:]
+    yes = "-y" in args or "--yes" in args
+    args = [a for a in args if a not in {"-y", "--yes"}]
 
-    run(user_input)
+    user_input = " ".join(args) if args else input("Message: ").strip()
+    run(user_input, yes=yes)
