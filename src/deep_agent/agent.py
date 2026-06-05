@@ -2,7 +2,7 @@ import os
 
 from deepagents import create_deep_agent
 
-from deep_agent.research_tools import tavily_search, think_tool
+from deep_agent.research_tools import think_tool
 from deep_agent.subagents import subagents
 
 _ORCHESTRATOR_INSTRUCTIONS = """You can delegate tasks to sub-agents.
@@ -50,7 +50,7 @@ Your role is to coordinate research by delegating specific research tasks to sub
 
 graph = create_deep_agent(
     model=os.environ.get("MAIN_MODEL", "openai:gpt-5.5"),
-    tools=[tavily_search, think_tool],
+    tools=[think_tool],
     subagents=subagents,
     system_prompt=_ORCHESTRATOR_INSTRUCTIONS.format(
         subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),

@@ -11,6 +11,7 @@ To add a new subagent:
 from datetime import datetime
 
 from deep_agent.google_workspace_tools import create_google_doc
+from deep_agent.research_tools import tavily_search, think_tool
 
 _RESEARCHER_INSTRUCTIONS = """You are a research assistant conducting research on the user's input topic. For context, today's date is {date}.
 
@@ -99,6 +100,7 @@ def _research_agent() -> dict:
         "name": "research-agent",
         "description": "Conducts web research on a specific topic and returns a full findings report",
         "system_prompt": _RESEARCHER_INSTRUCTIONS.format(date=datetime.now().strftime("%Y-%m-%d")),
+        "tools": [tavily_search, think_tool],
     }
 
 
