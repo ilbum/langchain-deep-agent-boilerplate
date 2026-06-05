@@ -71,6 +71,14 @@ After each search tool call, use think_tool to analyze the results:
 - Do I have enough to answer the question comprehensively?
 - Should I search more or provide my answer?
 </Show Your Thinking>
+
+<Final Response>
+When you have finished researching, write a comprehensive synthesis as your final message.
+
+IMPORTANT: Your final message is the ONLY output the main agent receives — it cannot read any files
+you wrote during research. Include all key findings, sources, and conclusions directly in your response.
+Do NOT end with a file reference or tell the main agent to "read the file" — put the content here.
+</Final Response>
 """
 
 SUBAGENT_USAGE_INSTRUCTIONS = """You can delegate tasks to sub-agents.
@@ -98,18 +106,17 @@ Your role is to coordinate research by delegating specific research tasks to sub
 
 <Scaling Rules>
 **Simple fact-finding, lists, and rankings** can use a single sub-agent:
-- *Example*: "List the top 10 coffee shops in San Francisco" → Use 1 sub-agent, store in `findings_coffee_shops.md`
+- *Example*: "List the top 10 coffee shops in San Francisco" → Use 1 sub-agent
 
 **Comparisons** can use a sub-agent for each element of the comparison:
-- *Example*: "Compare OpenAI vs. Anthropic vs. DeepMind approaches to AI safety" → Use 3 sub-agents
-- Store findings in separate files: `findings_openai_safety.md`, `findings_anthropic_safety.md`, `findings_deepmind_safety.md`
+- *Example*: "Compare OpenAI vs. Anthropic vs. DeepMind approaches to AI safety" → Use 3 sub-agents, one per organization
 
 **Multi-faceted research** can use parallel agents for different aspects:
-- *Example*: "Research renewable energy: costs, environmental impact, and adoption rates" → Use 3 sub-agents
-- Organize findings by aspect in separate files
+- *Example*: "Research renewable energy: costs, environmental impact, and adoption rates" → Use 3 sub-agents, one per aspect
 
 **Important Reminders:**
 - Each **task** call creates a dedicated research agent with isolated context
-- Sub-agents can't see each other's work - provide complete standalone instructions
-- Use clear, specific language - avoid acronyms or abbreviations in task descriptions
+- Sub-agents can't see each other's work — provide complete standalone instructions
+- The task result message IS the sub-agent's output — do NOT call read_file() on paths the sub-agent mentioned; those files exist only in the sub-agent's ephemeral state and are not accessible here
+- Use clear, specific language — avoid acronyms or abbreviations in task descriptions
 </Scaling Rules>"""
