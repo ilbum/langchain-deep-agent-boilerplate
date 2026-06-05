@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 
 from deep_agent.agents.types import SubagentConfig
-from deep_agent.research_tools import tavily_search
-from deep_agent.tools import think_tool
+from deep_agent.tools.reflect.base import think_tool
+from deep_agent.tools.search.base import SearchAdapter
+from deep_agent.tools.search.tavily import tavily_web
 
 _INSTRUCTIONS = """You are a research assistant conducting research on the user's input topic. For context, today's date is {date}.
 
@@ -14,7 +15,7 @@ You can use any of the tools provided to you to find resources that can help ans
 
 <Available Tools>
 You have access to two main tools:
-1. **tavily_search**: For conducting web searches to gather information
+1. **search**: For conducting web searches to gather information
 2. **think_tool**: For reflection and strategic planning during research
 
 **CRITICAL: Use think_tool after each search to reflect on results and plan next steps**
@@ -62,6 +63,7 @@ Do NOT end with a file reference or tell the main agent to "read the file" — p
 
 
 def subagent(
+    search: SearchAdapter = tavily_web,
     max_search_calls: int = int(os.environ.get("MAX_SEARCH_CALLS", 5)),
 ) -> SubagentConfig:
     return SubagentConfig(
@@ -71,5 +73,5 @@ def subagent(
             date=datetime.now().strftime("%Y-%m-%d"),
             max_search_calls=max_search_calls,
         ),
-        tools=[tavily_search, think_tool],
+        tools=[search.as_tool(), think_tool],
     )
