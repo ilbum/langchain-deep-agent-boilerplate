@@ -36,7 +36,7 @@ User request
 
 - **SDK-managed middleware** — todo list, filesystem, and sub-agent delegation are wired automatically by `create_deep_agent()`
 - **Context isolation** — sub-agents receive only their task description, not the parent's message history
-- **Context offloading** — the `search` tool saves full page content to the shared filesystem; the orchestrator's context sees only a short summary
+- **Context offloading** — the `search` tool runs a fetch → summarize → save pipeline: full page content goes to `StateBackend`; the agent context sees only a ≤150-word summary
 - **Declarative HITL** — action-taking sub-agents declare which tools require user approval via `interrupt_on`; the framework handles pause and resume
 - **Swappable tool adapters** — each tool capability (search, document, reflect) has a typed adapter; swap implementations at assembly time without touching agent logic
 
@@ -55,7 +55,9 @@ src/deep_agent/
 └── tools/
     ├── search/
     │   ├── base.py           # SearchAdapter — typed adapter + as_tool()
+    │   ├── _pipeline.py      # Shared fetch → summarize → save pipeline
     │   ├── tavily.py         # tavily_web, tavily_news adapters
+    │   ├── brave.py          # brave_web adapter (requires BRAVE_API_KEY)
     │   └── __init__.py       # SEARCH_ADAPTERS registry
     ├── document/
     │   ├── base.py           # DocumentAdapter — typed adapter + as_tool()
@@ -63,6 +65,15 @@ src/deep_agent/
     │   └── __init__.py       # DOCUMENT_ADAPTERS registry
     └── reflect/
         └── base.py           # think_tool
+
+tests/
+├── unit/                     # Fast tests — no API calls, no LangGraph context
+│   ├── test_agents.py        # SubagentConfig, subagent factories, adapter injection
+│   └── test_tools.py         # Adapter interfaces and registries
+├── integration/              # Real API calls — skipped unless -m integration
+│   └── test_search_adapters.py
+└── evals/                    # LangSmith evals — skipped unless -m langsmith
+    └── test_search_evals.py
 ```
 
 ---
@@ -95,6 +106,9 @@ MAX_CONCURRENT_AGENTS=3       # max parallel sub-agents per iteration
 MAX_AGENT_ITERATIONS=5        # max total task delegations per run
 MAX_SEARCH_CALLS=5            # max search calls per research agent
 
+# Brave Search — required only if using the brave_web adapter
+BRAVE_API_KEY=...               # Brave Data for AI subscription
+
 # Google Workspace — required only for the report-writer subagent
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
@@ -125,6 +139,23 @@ This starts a hot-reloading server at `http://localhost:2024` with the LangGraph
 4. Sub-agents execute in isolated contexts and return their findings or confirmation of action
 5. Orchestrator synthesizes results, then delegates to action sub-agents if needed
 6. If a sub-agent's tool is marked `interrupt_on`, the framework pauses and surfaces the action to the user for approval before proceeding
+
+---
+
+## Testing
+
+```bash
+# Unit tests (no API keys required)
+uv run pytest
+
+# Integration tests — real API calls, requires TAVILY_API_KEY / BRAVE_API_KEY
+uv run pytest -m integration
+
+# LangSmith evals — requires LANGSMITH_API_KEY
+uv run pytest -m langsmith
+```
+
+Integration and eval tests are deselected by default. The integration suite stubs `StateBackend` with an in-memory dict so adapters can run outside a LangGraph execution context.
 
 ---
 
@@ -190,6 +221,8 @@ brave_web = SearchAdapter(
 ADAPTERS: dict[str, SearchAdapter] = {brave_web.name: brave_web}
 ```
 
+If your adapter fetches URLs and you want the same fetch → summarize → save behaviour as Tavily, import the shared pipeline from `tools/search/_pipeline.py` instead of reinventing it.
+
 ```python
 # src/deep_agent/tools/search/__init__.py
 from deep_agent.tools.search.tavily import ADAPTERS as _tavily
@@ -252,10 +285,13 @@ uv run langgraph deploy
 | `langsmith` | Tracing and evaluation |
 | `langchain-openai` | OpenAI model provider |
 | `langchain-ollama` | Local model provider |
-| `langchain-tavily` / `tavily-python` | Web search |
-| `markdownify` | HTML → Markdown for search results |
+| `langchain-tavily` / `tavily-python` | Tavily web search adapter |
+| `httpx` | HTTP client used by the Brave search adapter |
+| `markdownify` | HTML → Markdown conversion in the search pipeline |
 | `google-auth-oauthlib` / `google-api-python-client` | Google Workspace integration |
+| `playwright` | Optional headless browser for web scraping |
 | `langgraph-cli` | Local dev, build, deploy |
+| `agentevals` (test) | Agent evaluation utilities for LangSmith evals |
 
 ---
 
