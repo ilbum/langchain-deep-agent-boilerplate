@@ -3,8 +3,8 @@
 These tools bypass the Google Drive MCP server (drivemcp.googleapis.com), which is in
 limited preview and not broadly available, in favour of the stable v1 REST APIs.
 
-Auth: same OAuth 2.0 refresh token used by mcp_client.py; no extra scopes needed beyond
-      https://www.googleapis.com/auth/drive (already includes Docs operations).
+Auth: standard OAuth 2.0 refresh token via GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+      GOOGLE_REFRESH_TOKEN. Scope: https://www.googleapis.com/auth/drive.
 """
 
 import os
