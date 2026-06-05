@@ -11,6 +11,7 @@ graph = create_deep_agent(
     tools=[tavily_search, think_tool],
     subagents=subagents,
     system_prompt=SUBAGENT_USAGE_INSTRUCTIONS.format(
+        subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),
         max_concurrent_research_units=3,
         max_researcher_iterations=5,
     ),

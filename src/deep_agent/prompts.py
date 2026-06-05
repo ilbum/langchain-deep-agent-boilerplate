@@ -8,8 +8,7 @@ Your role is to coordinate research by delegating specific research tasks to sub
 
 <Available Tools>
 1. **task(description, subagent_type)**: Delegate work to a specialized sub-agent. Available types:
-   - `research-agent`: Conducts web research and returns a full findings report
-   - `report-writer`: Creates a Google Doc from a research report and returns the document URL
+{subagent_listing}
 2. **think_tool(reflection)**: Reflect on results and plan next steps.
 
 **PARALLEL RESEARCH**: When you identify multiple independent research directions, make multiple **task** tool calls in a single response to enable parallel execution. Use at most {max_concurrent_research_units} parallel agents per iteration.
