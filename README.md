@@ -1,6 +1,6 @@
 # deep-agent-boilerplate
 
-A production-ready boilerplate for building **Deep Agents** — multi-step AI agents that gather information, synthesize it, and take action — on top of LangGraph and LangChain.
+A production-ready boilerplate for building **Deep Agents** — multi-step AI agents that gather information, synthesize it, and take action — on top of LangGraph and LangChain. 
 
 Deep Agents go beyond simple ReAct loops. They delegate specialized work to isolated sub-agents, offload context to a virtual filesystem, and coordinate complex multi-step workflows while keeping each agent's context lean and focused.
 
@@ -256,3 +256,12 @@ uv run langgraph deploy
 | `markdownify` | HTML → Markdown for search results |
 | `google-auth-oauthlib` / `google-api-python-client` | Google Workspace integration |
 | `langgraph-cli` | Local dev, build, deploy |
+
+---
+
+## Acknowledgements
+
+This boilerplate builds on two LangChain projects:
+
+- **[deep-agents-from-scratch](https://github.com/langchain-ai/deep-agents-from-scratch)** — the reference implementation this project learned its patterns from: sub-agent isolation, virtual filesystem offloading, and the gather → synthesize → act orchestration loop.
+- **[deepagents](https://github.com/langchain-ai/deepagents)** — the SDK used under the hood (`create_deep_agent`, middleware wiring, `StateBackend`). Licensed MIT.
