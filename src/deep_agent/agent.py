@@ -54,7 +54,7 @@ graph = create_deep_agent(
     subagents=subagents,
     system_prompt=_ORCHESTRATOR_INSTRUCTIONS.format(
         subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),
-        max_concurrent_research_units=3,
-        max_researcher_iterations=5,
+        max_concurrent_research_units=int(os.environ.get("MAX_CONCURRENT_RESEARCH_UNITS", 3)),
+        max_researcher_iterations=int(os.environ.get("MAX_RESEARCHER_ITERATIONS", 5)),
     ),
 )
