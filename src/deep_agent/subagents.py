@@ -8,10 +8,12 @@ To add a new subagent:
   2. Append it to the subagents list at the bottom.
 """
 
+import os
 from datetime import datetime
 
 from deep_agent.google_workspace_tools import create_google_doc
-from deep_agent.research_tools import tavily_search, think_tool
+from deep_agent.research_tools import tavily_search
+from deep_agent.tools import think_tool
 
 _RESEARCHER_INSTRUCTIONS = """You are a research assistant conducting research on the user's input topic. For context, today's date is {date}.
 
@@ -42,8 +44,8 @@ Think like a human researcher with limited time. Follow these steps:
 **Tool Call Budgets** (Prevent excessive searching):
 - **Simple queries**: Use 1-2 search tool calls maximum
 - **Normal queries**: Use 2-3 search tool calls maximum
-- **Very Complex queries**: Use up to 5 search tool calls maximum
-- **Always stop**: After 5 search tool calls if you cannot find the right sources
+- **Very Complex queries**: Use up to {max_search_calls} search tool calls maximum
+- **Always stop**: After {max_search_calls} search tool calls if you cannot find the right sources
 
 **Stop Immediately When**:
 - You can answer the user's question comprehensively
@@ -99,7 +101,10 @@ def _research_agent() -> dict:
     return {
         "name": "research-agent",
         "description": "Conducts web research on a specific topic and returns a full findings report",
-        "system_prompt": _RESEARCHER_INSTRUCTIONS.format(date=datetime.now().strftime("%Y-%m-%d")),
+        "system_prompt": _RESEARCHER_INSTRUCTIONS.format(
+            date=datetime.now().strftime("%Y-%m-%d"),
+            max_search_calls=int(os.environ.get("MAX_SEARCH_CALLS", 5)),
+        ),
         "tools": [tavily_search, think_tool],
     }
 

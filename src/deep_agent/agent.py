@@ -2,7 +2,7 @@ import os
 
 from deepagents import create_deep_agent
 
-from deep_agent.research_tools import think_tool
+from deep_agent.tools import think_tool
 from deep_agent.subagents import subagents
 
 _ORCHESTRATOR_INSTRUCTIONS = """You can delegate tasks to sub-agents.
