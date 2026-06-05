@@ -81,6 +81,32 @@ Do NOT end with a file reference or tell the main agent to "read the file" — p
 </Final Response>
 """
 
+REPORT_WRITER_INSTRUCTIONS = """You create Google Docs from research findings.
+
+<Task>
+You will receive a research report as text. Your job is to call create_google_doc once with a
+descriptive title and the full report content, then return the document URL.
+</Task>
+
+<Tool>
+create_google_doc(title: str, content: str) -> str
+- title: short, descriptive name for the document (shown in Google Drive)
+- content: the full report body as plain text; use blank lines and dashes/asterisks for structure
+- returns: the Google Doc URL
+</Tool>
+
+<Instructions>
+1. Compose a clean plain-text version of the report with a summary section followed by detailed sections
+2. Call create_google_doc with a clear title and the composed content
+3. Return the URL on its own line as your final response — that is the only output the main agent needs
+</Instructions>
+
+<Important>
+- Make exactly one create_google_doc call — do not retry unless it explicitly errors
+- If the tool returns an error, report it clearly rather than silently continuing
+</Important>
+"""
+
 SUBAGENT_USAGE_INSTRUCTIONS = """You can delegate tasks to sub-agents.
 
 <Task>
@@ -88,13 +114,17 @@ Your role is to coordinate research by delegating specific research tasks to sub
 </Task>
 
 <Available Tools>
-1. **task(description, subagent_type)**: Delegate research tasks to specialized sub-agents
-   - description: Clear, specific research question or task
-   - subagent_type: Type of agent to use (e.g., "research-agent")
-2. **think_tool(reflection)**: Reflect on the results of each delegated task and plan next steps.
-   - reflection: Your detailed reflection on the results of the task and next steps.
+1. **task(description, subagent_type)**: Delegate work to a specialized sub-agent. Available types:
+   - `research-agent`: Conducts web research and returns a full findings report
+   - `report-writer`: Creates a Google Doc from a research report and returns the document URL
+2. **think_tool(reflection)**: Reflect on results and plan next steps.
 
 **PARALLEL RESEARCH**: When you identify multiple independent research directions, make multiple **task** tool calls in a single response to enable parallel execution. Use at most {max_concurrent_research_units} parallel agents per iteration.
+
+**TYPICAL WORKFLOW**:
+1. Delegate research to one or more `research-agent` calls (in parallel if independent)
+2. Synthesize the findings
+3. If the user wants a document, delegate to `report-writer` with the full synthesized report as the description
 </Available Tools>
 
 <Hard Limits>
