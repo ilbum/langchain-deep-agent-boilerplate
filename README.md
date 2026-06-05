@@ -36,8 +36,9 @@ User request
 
 - **SDK-managed middleware** — todo list, filesystem, and sub-agent delegation are wired automatically by `create_deep_agent()`
 - **Context isolation** — sub-agents receive only their task description, not the parent's message history
-- **Context offloading** — `tavily_search` saves full page content to the shared filesystem; the orchestrator's context sees only a short summary
+- **Context offloading** — the `search` tool saves full page content to the shared filesystem; the orchestrator's context sees only a short summary
 - **Declarative HITL** — action-taking sub-agents declare which tools require user approval via `interrupt_on`; the framework handles pause and resume
+- **Swappable tool adapters** — each tool capability (search, document, reflect) has a typed adapter; swap implementations at assembly time without touching agent logic
 
 ---
 
@@ -46,10 +47,22 @@ User request
 ```
 src/deep_agent/
 ├── agent.py                  # Orchestrator — wires model, tools, and subagents
-├── subagents.py              # Subagent definitions (extend here to add new agents)
-├── tools.py                  # Shared tools (think_tool)
-├── research_tools.py         # Research tools (tavily_search)
-└── google_workspace_tools.py # Google Docs integration (create_google_doc)
+├── agents/
+│   ├── __init__.py           # Subagent registry — assembles the active list
+│   ├── types.py              # SubagentConfig dataclass
+│   ├── researcher.py         # research-agent — web search + synthesis
+│   └── report_writer.py      # report-writer — creates documents
+└── tools/
+    ├── search/
+    │   ├── base.py           # SearchAdapter — typed adapter + as_tool()
+    │   ├── tavily.py         # tavily_web, tavily_news adapters
+    │   └── __init__.py       # SEARCH_ADAPTERS registry
+    ├── document/
+    │   ├── base.py           # DocumentAdapter — typed adapter + as_tool()
+    │   ├── google.py         # google_doc adapter
+    │   └── __init__.py       # DOCUMENT_ADAPTERS registry
+    └── reflect/
+        └── base.py           # think_tool
 ```
 
 ---
@@ -80,7 +93,7 @@ SUMMARIZATION_MODEL=openai:gpt-5.4-mini
 # Orchestrator limits (optional)
 MAX_CONCURRENT_AGENTS=3       # max parallel sub-agents per iteration
 MAX_AGENT_ITERATIONS=5        # max total task delegations per run
-MAX_SEARCH_CALLS=5            # max tavily_search calls per research agent
+MAX_SEARCH_CALLS=5            # max search calls per research agent
 
 # Google Workspace — required only for the report-writer subagent
 GOOGLE_CLIENT_ID=...
@@ -119,62 +132,85 @@ This starts a hot-reloading server at `http://localhost:2024` with the LangGraph
 
 ### Adding a sub-agent
 
-All sub-agents live in `subagents.py`. Add a private function and append it to the `subagents` list:
+Each sub-agent is a discrete module in `agents/`. Create a new file that exports a `subagent()` function returning a `SubagentConfig`, then register it in `agents/__init__.py`:
 
 ```python
-def _my_agent() -> dict:
-    return {
-        "name": "my-agent",
-        "description": "One sentence — the orchestrator uses this to decide when to call this agent",
-        "system_prompt": _MY_AGENT_INSTRUCTIONS,
-        "tools": [my_tool],
-    }
+# src/deep_agent/agents/slack.py
+from deep_agent.agents.types import SubagentConfig
+from deep_agent.tools.messaging.slack import slack_adapter
+
+_INSTRUCTIONS = """You post messages to Slack..."""
+
+def subagent(
+    messaging=slack_adapter,
+) -> SubagentConfig:
+    return SubagentConfig(
+        name="slack-agent",
+        description="Posts a message to a Slack channel",
+        system_prompt=_INSTRUCTIONS,
+        tools=[messaging.as_tool()],
+        interrupt_on={"send_message": True},  # pauses for user approval
+    )
+```
+
+```python
+# src/deep_agent/agents/__init__.py
+from deep_agent.agents import researcher, report_writer, slack
 
 subagents: list[dict] = [
-    _research_agent(),
-    _report_writer(),
-    _my_agent(),   # ← add here
+    researcher.subagent().to_dict(),
+    report_writer.subagent().to_dict(),
+    slack.subagent().to_dict(),           # ← add here
 ]
 ```
 
 The orchestrator's prompt is automatically updated — `{subagent_listing}` is generated from the `name` and `description` fields at startup.
 
-**If your sub-agent takes irreversible actions** (sends messages, writes to external systems, deletes data), declare `interrupt_on` for those tools. The framework will pause and ask the user for approval before the tool fires:
+**Irreversible actions** (sends messages, writes to external systems, deletes data) should declare `interrupt_on`. The framework pauses and asks the user for approval before the tool fires — the user can approve, edit the input, or reject.
+
+### Adding tool adapters
+
+Tools are organised by capability under `tools/`. Each capability has a typed adapter dataclass (`SearchAdapter`, `DocumentAdapter`) and an `as_tool()` method that produces the LangChain tool the sub-agent receives.
+
+**Adding a new adapter to an existing capability** (e.g. a Brave search adapter):
 
 ```python
-def _slack_agent() -> dict:
-    return {
-        "name": "slack-agent",
-        "description": "Posts a message to a Slack channel",
-        "system_prompt": _SLACK_INSTRUCTIONS,
-        "tools": [send_slack_message],
-        "interrupt_on": {"send_slack_message": True},  # pauses for user approval
-    }
-```
+# src/deep_agent/tools/search/brave.py
+from deep_agent.tools.search.base import SearchAdapter
 
-The user can approve, edit the message, or reject — handled natively by the framework with no extra code.
-
-### Adding tools
-
-Each integration gets its own `*_tools.py` file. Define your tool with `@tool` and import it into `subagents.py`:
-
-```python
-# src/deep_agent/slack_tools.py
-from langchain_core.tools import tool
-
-@tool
-def send_slack_message(channel: str, message: str) -> str:
-    """Post a message to a Slack channel. Returns confirmation."""
+def _brave_search(query: str) -> str:
     ...
-```
 
-Then import and use in `subagents.py`:
+brave_web = SearchAdapter(
+    name="brave_web",
+    description="Search the web using Brave Search.",
+    fn=_brave_search,
+)
+
+ADAPTERS: dict[str, SearchAdapter] = {brave_web.name: brave_web}
+```
 
 ```python
-from deep_agent.slack_tools import send_slack_message
+# src/deep_agent/tools/search/__init__.py
+from deep_agent.tools.search.tavily import ADAPTERS as _tavily
+from deep_agent.tools.search.brave import ADAPTERS as _brave   # ← add here
+
+SEARCH_ADAPTERS = {**_tavily, **_brave}
 ```
 
-If a tool is used by both the orchestrator and a sub-agent (like `think_tool`), define it in `tools.py` and import from there.
+The sub-agent selects which adapter to use:
+
+```python
+# Use Brave instead of Tavily for this researcher
+researcher.subagent(search=brave_web).to_dict()
+```
+
+**Adding a new capability** (e.g. messaging):
+
+1. Create `tools/messaging/base.py` with a `MessagingAdapter` dataclass and `as_tool()`.
+2. Create `tools/messaging/slack.py` with a concrete `slack_adapter` instance.
+3. Create `tools/messaging/__init__.py` composing the registry.
+4. Import the adapter in your sub-agent file.
 
 ### Changing the model
 
