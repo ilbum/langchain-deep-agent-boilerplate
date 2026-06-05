@@ -15,7 +15,13 @@ from googleapiclient.discovery import build
 from langchain_core.tools import tool
 
 
+_cached_creds: Credentials | None = None
+
+
 def _get_credentials() -> Credentials:
+    global _cached_creds
+    if _cached_creds and _cached_creds.valid:
+        return _cached_creds
     creds = Credentials(
         token=None,
         refresh_token=os.environ["GOOGLE_REFRESH_TOKEN"],
@@ -25,6 +31,7 @@ def _get_credentials() -> Credentials:
         scopes=["https://www.googleapis.com/auth/drive"],
     )
     creds.refresh(Request())
+    _cached_creds = creds
     return creds
 
 
