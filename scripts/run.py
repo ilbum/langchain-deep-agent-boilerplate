@@ -31,11 +31,15 @@ def _extract_text(content) -> str:
 def _ask_approval(action_requests: list) -> dict:
     decisions = []
     for req in action_requests:
-        tool_name = req.get("action", {}).get("name", "unknown")
-        tool_args = req.get("action", {}).get("args", {})
+        tool_name = req.get("name", "unknown")
+        tool_args = req.get("args", {})
+        description = req.get("description", "")
         print(f"\n{'─'*60}")
         print(f"[interrupt] tool: {tool_name}")
-        print(f"[interrupt] args:\n{json.dumps(tool_args, indent=2)[:800]}")
+        if description:
+            print(f"[interrupt] {description}")
+        else:
+            print(f"[interrupt] args:\n{json.dumps(tool_args, indent=2)[:800]}")
         print("\napprove / reject [reason]")
         print(f"{'─'*60}")
 
@@ -54,6 +58,40 @@ def _ask_approval(action_requests: list) -> dict:
     return {"decisions": decisions}
 
 
+def _stream_and_collect(inputs, config) -> list:
+    """Stream one pass, printing output. Returns list of Interrupt objects hit."""
+    interrupts = []
+
+    for step in graph.stream(inputs, config=config, stream_mode=["messages", "updates"]):
+        mode, data = step
+
+        if mode == "messages":
+            chunk, metadata = data
+            if isinstance(chunk, AIMessageChunk):
+                for tc in chunk.tool_call_chunks:
+                    if tc.get("name"):
+                        print(f"\n[tool call] {tc['name']}", end="", flush=True)
+                    if tc.get("args"):
+                        print(tc["args"], end="", flush=True)
+                text = _extract_text(chunk.content)
+                if text and not chunk.tool_call_chunks:
+                    print(text, end="", flush=True)
+            elif isinstance(chunk, ToolMessage):
+                node = metadata.get("langgraph_node", "")
+                preview = chunk.content[:300] + ("..." if len(chunk.content) > 300 else "")
+                print(f"\n[tool result:{node}] {preview}")
+
+        elif mode == "updates":
+            for update in data.values():
+                # Interrupt objects come through as non-dict values
+                if not isinstance(update, dict) and hasattr(update, "__iter__"):
+                    for item in update:
+                        if hasattr(item, "value") and "action_requests" in getattr(item, "value", {}):
+                            interrupts.append(item)
+
+    return interrupts
+
+
 def run(user_input: str) -> None:
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
     inputs = {"messages": [HumanMessage(content=user_input)]}
@@ -63,35 +101,18 @@ def run(user_input: str) -> None:
     print(f"{'='*60}\n")
 
     while True:
-        for chunk, metadata in graph.stream(inputs, config=config, stream_mode="messages"):
-            if isinstance(chunk, AIMessageChunk):
-                for tc in chunk.tool_call_chunks:
-                    if tc.get("name"):
-                        print(f"\n[tool call] {tc['name']}", end="", flush=True)
-                    if tc.get("args"):
-                        print(tc["args"], end="", flush=True)
+        interrupts = _stream_and_collect(inputs, config)
 
-                text = _extract_text(chunk.content)
-                if text and not chunk.tool_call_chunks:
-                    print(text, end="", flush=True)
-
-            elif isinstance(chunk, ToolMessage):
-                node = metadata.get("langgraph_node", "")
-                preview = chunk.content[:300] + ("..." if len(chunk.content) > 300 else "")
-                print(f"\n[tool result:{node}] {preview}")
-
-        # Check for pending interrupts
-        state = graph.get_state(config)
-        pending = [intr for task in state.tasks for intr in getattr(task, "interrupts", [])]
-
-        if not pending:
+        if not interrupts:
             break
 
-        for intr in pending:
-            value = intr.value
-            if isinstance(value, dict) and "action_requests" in value:
-                resume_payload = _ask_approval(value["action_requests"])
-                inputs = Command(resume=resume_payload)
+        # Key resume by interrupt ID — required when multiple interrupts fire concurrently
+        resume = {}
+        for intr in interrupts:
+            resume_payload = _ask_approval(intr.value["action_requests"])
+            resume[intr.id] = resume_payload
+
+        inputs = Command(resume=resume)
 
     print(f"\n\n{'='*60}\n")
 
