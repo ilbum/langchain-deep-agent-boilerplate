@@ -9,28 +9,27 @@ Deep Agents go beyond simple ReAct loops. They maintain a task list, offload con
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│                 Deep Agent                  │
-│                                             │
-│  State                                      │
-│  ├── messages   conversation history        │
-│  ├── todos      task list + status          │
-│  └── files      virtual filesystem          │
-│                                             │
-│  Tools                                      │
-│  ├── write_todos / read_todos               │
-│  ├── ls / read_file / write_file            │
-│  ├── tavily_search / think_tool             │
-│  └── task() ──► Sub-agent (isolated ctx)    │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                     Main Agent                       │
+│                                                      │
+│  SDK-managed (automatic)                             │
+│  ├── write_todos              [TodoListMiddleware]   │
+│  ├── ls / read_file /         [FilesystemMiddleware] │
+│  │   write_file / edit_file                         │
+│  └── task() ──► Sub-agent    [SubAgentMiddleware]    │
+│                  (isolated context)                  │
+│                                                      │
+│  Custom tools                                        │
+│  ├── tavily_search  — search + summarize + save      │
+│  └── think_tool     — reflection checkpoint          │
+└──────────────────────────────────────────────────────┘
 ```
 
 **Key design patterns:**
 
+- **SDK-managed middleware** — todo list, filesystem, and sub-agent delegation are provided automatically by `create_deep_agent()`; no boilerplate wiring needed
 - **Context isolation** — sub-agents receive only their task description, not the parent's message history
-- **Virtual filesystem** — research results are saved to files, keeping the main context window small
-- **Atomic state updates** — tools return LangGraph `Command` objects for safe, conflict-free state mutations
-- **`file_reducer`** — merges file state correctly when multiple tools write concurrently
+- **Context offloading** — `tavily_search` saves full page content to the shared filesystem via `StateBackend`; the main agent's context sees only a short summary
 - **Reflection checkpoints** — `think_tool()` creates deliberate pauses to prevent runaway search loops
 
 ---
@@ -39,12 +38,9 @@ Deep Agents go beyond simple ReAct loops. They maintain a task list, offload con
 
 ```
 src/deep_agent/
-├── state.py          # DeepAgentState — todos, files, file_reducer
-├── prompts.py        # System prompts and tool descriptions
-├── file_tools.py     # ls, read_file, write_file
-├── todo_tools.py     # write_todos, read_todos
-├── research_tools.py # tavily_search, think_tool, HTML→Markdown processing
-└── task_tool.py      # Sub-agent factory with context isolation
+├── agent.py          # Entry point — wires model, tools, and subagents
+├── prompts.py        # System prompts for main agent and research subagent
+└── research_tools.py # tavily_search, think_tool, HTML→Markdown processing
 ```
 
 ---
@@ -67,6 +63,10 @@ Copy `.env.example` to `.env` and fill in your keys:
 OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...
 
+# Models (optional — these are the defaults)
+MAIN_MODEL=openai:gpt-5.5
+SUMMARIZATION_MODEL=openai:gpt-5.4-mini
+
 # Optional — enables LangSmith tracing
 LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
@@ -86,46 +86,48 @@ This starts a hot-reloading server at `http://localhost:2024` with the LangGraph
 
 ## Building your agent
 
-The boilerplate provides the tools and state — you wire them into a graph. Create `src/deep_agent/agent.py`:
+`agent.py` is the only file you need to edit to configure the graph:
 
 ```python
+import os
+from datetime import datetime
 from deepagents import create_deep_agent
-from .file_tools import ls, read_file, write_file
-from .todo_tools import write_todos, read_todos
-from .research_tools import tavily_search, think_tool
-from .task_tool import create_task_tool
-from .state import DeepAgentState
-
-tools = [write_todos, read_todos, ls, read_file, write_file, tavily_search, think_tool]
+from deep_agent.prompts import RESEARCHER_INSTRUCTIONS, SUBAGENT_USAGE_INSTRUCTIONS
+from deep_agent.research_tools import tavily_search, think_tool
 
 graph = create_deep_agent(
-    tools=tools,
-    state_schema=DeepAgentState,
+    model=os.environ.get("MAIN_MODEL", "openai:gpt-5.5"),
+    tools=[tavily_search, think_tool],
+    subagents=[
+        {
+            "name": "research-agent",
+            "description": "Conducts web research on a specific topic and saves findings to files",
+            "system_prompt": RESEARCHER_INSTRUCTIONS.format(date=datetime.now().strftime("%Y-%m-%d")),
+        }
+    ],
+    system_prompt=SUBAGENT_USAGE_INSTRUCTIONS.format(
+        max_concurrent_research_units=3,
+        max_researcher_iterations=5,
+    ),
 )
 ```
 
-Then add a `langgraph.json` at the project root:
-
-```json
-{
-    "dependencies": ["."],
-    "graphs": {
-        "agent": "src/deep_agent/agent.py:graph"
-    },
-    "env": "./.env",
-    "python_version": "3.13"
-}
-```
+`create_deep_agent()` automatically includes:
+- `TodoListMiddleware` — `write_todos` tool + `todos` state
+- `FilesystemMiddleware` — `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep` + `files` state
+- `SubAgentMiddleware` — `task` tool that dispatches to declared subagents
+- `SummarizationMiddleware`, `PatchToolCallsMiddleware`
 
 ---
 
 ## How an agent run works
 
 1. Agent receives a task and calls `write_todos()` to plan its steps
-2. For each todo, it either handles it directly or delegates via `task()`
-3. Research tasks use `tavily_search()` to fetch results, `think_tool()` to reflect, and `write_file()` to save findings
-4. The parent agent reads results back with `read_file()` and synthesizes a final answer
-5. Todo statuses are updated to `completed` as work finishes
+2. For research tasks, it delegates via `task(agent="research-agent", description="…")`
+3. The research subagent calls `tavily_search()` — which fetches pages, summarizes them, and saves full content to `StateBackend`
+4. The research subagent uses `think_tool()` to reflect before deciding whether to search further
+5. The parent agent reads findings with `read_file()` and synthesizes a final answer
+6. Todo statuses are updated to `completed` as work finishes
 
 ---
 
@@ -152,7 +154,7 @@ uv run langgraph deploy
 
 | Package | Purpose |
 |---|---|
-| `deepagents` | Deep Agents framework |
+| `deepagents` | Deep Agents framework (middleware, backends, `create_deep_agent`) |
 | `langchain` / `langchain-core` | LangChain 1.0 LTS |
 | `langgraph` | Graph orchestration |
 | `langsmith` | Tracing and evaluation |
@@ -167,10 +169,10 @@ uv run langgraph deploy
 
 ## Extending
 
-**Add a tool** — define a function with `@tool` and add it to the `tools` list in `agent.py`.
+**Add a tool** — define a function with `@tool` in `research_tools.py` (or a new file) and add it to the `tools` list in `agent.py`.
 
-**Add a sub-agent** — pass a `subagents` config list to `create_task_tool()`. Each sub-agent gets its own tool set and model.
+**Add a sub-agent** — add an entry to the `subagents` list in `agent.py`. Each sub-agent inherits the main agent's tools unless it declares its own `tools` key.
 
-**Change the model** — swap the model in `create_deep_agent()`. The boilerplate ships with OpenAI but works with any LangChain-compatible provider.
+**Change the model** — set `MAIN_MODEL` or `SUMMARIZATION_MODEL` in `.env`. Any `provider:model` string supported by `init_chat_model` works (e.g. `anthropic:claude-opus-4-7`).
 
 **Persistent memory** — use `StoreBackend` or `CompositeBackend` from the Deep Agents memory system for cross-thread state.

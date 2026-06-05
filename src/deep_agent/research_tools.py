@@ -9,22 +9,21 @@ import os
 import uuid
 from datetime import datetime
 
+
 import httpx
+from deepagents.backends.state import StateBackend
 from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage, ToolMessage
-from langchain_core.tools import InjectedToolArg, InjectedToolCallId, tool
-from langgraph.prebuilt import InjectedState
-from langgraph.types import Command
+from langchain_core.messages import HumanMessage
+from langchain_core.tools import InjectedToolArg, tool
 from markdownify import markdownify
 from pydantic import BaseModel, Field
 from tavily import TavilyClient
 from typing_extensions import Annotated, Literal
 
 from deep_agent.prompts import SUMMARIZE_WEB_SEARCH
-from deep_agent.state import DeepAgentState
 
 # Summarization model
-summarization_model = init_chat_model(model="openai:gpt-5.4-mini-2026-03-17")
+summarization_model = init_chat_model(model=os.environ.get("SUMMARIZATION_MODEL", "openai:gpt-5.4-mini"))
 tavily_client = TavilyClient()
 
 
@@ -177,13 +176,11 @@ def process_search_results(results: dict) -> list[dict]:
 @tool(parse_docstring=True)
 def tavily_search(
     query: str,
-    state: Annotated[DeepAgentState, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
     max_results: Annotated[int, InjectedToolArg] = 1,
     topic: Annotated[
         Literal["general", "news", "finance"], InjectedToolArg
     ] = "general",
-) -> Command:
+) -> str:
     """Search web and save detailed results to files while returning minimal context.
 
     Performs web search and saves full content to files for context offloading.
@@ -191,15 +188,14 @@ def tavily_search(
 
     Args:
         query: Search query to execute
-        state: Injected agent state for file storage
-        tool_call_id: Injected tool call identifier
         max_results: Maximum number of results to return (default: 1)
         topic: Topic filter - 'general', 'news', or 'finance' (default: 'general')
 
     Returns:
-        Command that saves full results to files and provides minimal summary
+        Minimal summary of search results with file paths for reading full details
     """
-    # Execute search
+    backend = StateBackend()
+
     search_results = run_tavily_search(
         query,
         max_results=max_results,
@@ -207,19 +203,13 @@ def tavily_search(
         include_raw_content=True,
     )
 
-    # Process and summarize results
     processed_results = process_search_results(search_results)
 
-    # Save each result to a file and prepare summary
-    files = state.get("files", {})
     saved_files = []
     summaries = []
 
-    for i, result in enumerate(processed_results):
-        # Use the AI-generated filename from summarization
+    for result in processed_results:
         filename = result["filename"]
-
-        # Create file content with full details
         file_content = f"""# Search Result: {result['title']}
 
 **URL:** {result['url']}
@@ -232,25 +222,16 @@ def tavily_search(
 ## Raw Content
 {result['raw_content'] if result['raw_content'] else 'No raw content available'}
 """
-
-        files[filename] = file_content
+        backend.write(f"/{filename}", file_content)
         saved_files.append(filename)
         summaries.append(f"- {filename}: {result['summary']}...")
 
-    # Create minimal summary for tool message - focus on what was collected
-    summary_text = f"""🔍 Found {len(processed_results)} result(s) for '{query}':
+    return f"""🔍 Found {len(processed_results)} result(s) for '{query}':
 
 {chr(10).join(summaries)}
 
 Files: {', '.join(saved_files)}
 💡 Use read_file() to access full details when needed."""
-
-    return Command(
-        update={
-            "files": files,
-            "messages": [ToolMessage(summary_text, tool_call_id=tool_call_id)],
-        }
-    )
 
 
 @tool(parse_docstring=True)
