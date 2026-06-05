@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from deepagents import create_deep_agent
 from deepagents.backends import LocalShellBackend
@@ -59,14 +60,19 @@ parallel agents per iteration.
 - Use clear, specific language — avoid acronyms or abbreviations in task descriptions
 </Scaling Rules>"""
 
-graph = create_deep_agent(
-    model=os.environ.get("MAIN_MODEL", "openai:gpt-5.5"),
-    tools=[think_tool],
-    subagents=subagents,
-    backend=LocalShellBackend(inherit_env=True, virtual_mode=True),
-    system_prompt=_ORCHESTRATOR_INSTRUCTIONS.format(
-        subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),
-        max_concurrent_agents=int(os.environ.get("MAX_CONCURRENT_AGENTS", 3)),
-        max_agent_iterations=int(os.environ.get("MAX_AGENT_ITERATIONS", 5)),
-    ),
-)
+def create_graph(checkpointer: Any = None):
+    return create_deep_agent(
+        model=os.environ.get("MAIN_MODEL", "openai:gpt-5.5"),
+        tools=[think_tool],
+        subagents=subagents,
+        backend=LocalShellBackend(inherit_env=True, virtual_mode=True),
+        checkpointer=checkpointer,
+        system_prompt=_ORCHESTRATOR_INSTRUCTIONS.format(
+            subagent_listing="\n".join(f"   - `{s['name']}`: {s['description']}" for s in subagents),
+            max_concurrent_agents=int(os.environ.get("MAX_CONCURRENT_AGENTS", 3)),
+            max_agent_iterations=int(os.environ.get("MAX_AGENT_ITERATIONS", 5)),
+        ),
+    )
+
+
+graph = create_graph()
