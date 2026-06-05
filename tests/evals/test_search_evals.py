@@ -1,6 +1,7 @@
 import pytest
 from langsmith import testing as t
 
+from deep_agent.tools.search.brave import brave_web
 from deep_agent.tools.search.tavily import tavily_news, tavily_web
 
 _QUERIES = [
@@ -9,9 +10,7 @@ _QUERIES = [
     "Python async best practices 2025",
 ]
 
-# When brave_web is added to tools/search/brave.py, append it here —
-# no other change needed.
-_ADAPTERS = [tavily_web, tavily_news]
+_ADAPTERS = [tavily_web, tavily_news, brave_web]
 
 
 @pytest.mark.langsmith
