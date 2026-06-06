@@ -30,6 +30,9 @@ User request
           ▼                        ▼
    research-agent           report-writer
    (web search)             (Google Docs)
+
+   browser-agent
+   (web automation)
 ```
 
 **Key design principles:**
@@ -51,7 +54,8 @@ src/deep_agent/
 │   ├── __init__.py           # Subagent registry — assembles the active list
 │   ├── types.py              # SubagentConfig dataclass
 │   ├── researcher.py         # research-agent — web search + synthesis
-│   └── report_writer.py      # report-writer — creates documents
+│   ├── report_writer.py      # report-writer — creates documents
+│   └── browser.py            # browser-agent — web automation (harness or Playwright)
 └── tools/
     ├── search/
     │   ├── base.py           # SearchAdapter — typed adapter + as_tool()
@@ -63,6 +67,10 @@ src/deep_agent/
     │   ├── base.py           # DocumentAdapter — typed adapter + as_tool()
     │   ├── google.py         # google_doc adapter
     │   └── __init__.py       # DOCUMENT_ADAPTERS registry
+    ├── browser/
+    │   ├── base.py           # BrowserAdapter — typed adapter + as_tools()
+    │   ├── playwright.py     # playwright_browser adapter (thread-local sessions)
+    │   └── __init__.py       # BROWSER_ADAPTERS registry
     └── reflect/
         └── base.py           # think_tool
 
@@ -109,6 +117,9 @@ MAX_SEARCH_CALLS=5            # max search calls per research agent
 # Brave Search — required only if using the brave_web adapter
 BRAVE_API_KEY=...               # Brave Data for AI subscription
 
+# Browser agent backend (optional — defaults to browser-harness via shell)
+BROWSER_ADAPTER=playwright_browser   # switch to the Playwright adapter
+
 # Google Workspace — required only for the report-writer subagent
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
@@ -128,6 +139,12 @@ uv run langgraph dev
 ```
 
 This starts a hot-reloading server at `http://localhost:2024` with the LangGraph Studio UI.
+
+If you run parallel browser agents, each occupies a worker slot. Increase the pool to match `MAX_CONCURRENT_AGENTS` (plus one for the orchestrator):
+
+```bash
+uv run langgraph dev --n-jobs-per-worker 10
+```
 
 ---
 
@@ -201,7 +218,7 @@ The orchestrator's prompt is automatically updated — `{subagent_listing}` is g
 
 ### Adding tool adapters
 
-Tools are organised by capability under `tools/`. Each capability has a typed adapter dataclass (`SearchAdapter`, `DocumentAdapter`) and an `as_tool()` method that produces the LangChain tool the sub-agent receives.
+Tools are organised by capability under `tools/`. Each capability has a typed adapter dataclass (`SearchAdapter`, `DocumentAdapter`, `BrowserAdapter`) and an `as_tool()` / `as_tools()` method that produces the LangChain tool(s) the sub-agent receives.
 
 **Adding a new adapter to an existing capability** (e.g. a Brave search adapter):
 
@@ -237,6 +254,31 @@ The sub-agent selects which adapter to use:
 # Use Brave instead of Tavily for this researcher
 researcher.subagent(search=brave_web).to_dict()
 ```
+
+**Swapping the browser backend:**
+
+The browser agent supports two backends, selected via `BROWSER_ADAPTER` in `.env` or passed directly:
+
+| Backend | How it works | When to use |
+|---|---|---|
+| _(default, no env var)_ | `browser-harness` CLI via shell `execute` tool | Chrome already running locally |
+| `playwright_browser` | Headless Chromium via Playwright Python API | CI, cloud, or no local Chrome |
+
+Both backends isolate concurrent sessions — Playwright uses `threading.local()` so parallel browser agents each get their own Chromium process.
+
+```bash
+# .env
+BROWSER_ADAPTER=playwright_browser
+```
+
+Or pass it directly in `agents/__init__.py` to override the env var:
+
+```python
+from deep_agent.tools.browser.playwright import playwright_browser
+browser.subagent(browser=playwright_browser).to_dict()
+```
+
+To add a new browser backend (e.g. Browserbase), implement a class with `navigate`, `screenshot`, `click`, `js`, and `page_info` methods, wrap it in a `BrowserAdapter`, and add it to `BROWSER_ADAPTERS` in `tools/browser/__init__.py`.
 
 **Adding a new capability** (e.g. messaging):
 
@@ -289,7 +331,7 @@ uv run langgraph deploy
 | `httpx` | HTTP client used by the Brave search adapter |
 | `markdownify` | HTML → Markdown conversion in the search pipeline |
 | `google-auth-oauthlib` / `google-api-python-client` | Google Workspace integration |
-| `playwright` | Optional headless browser for web scraping |
+| `playwright` | Headless Chromium for the `playwright_browser` adapter |
 | `langgraph-cli` | Local dev, build, deploy |
 | `agentevals` (test) | Agent evaluation utilities for LangSmith evals |
 
