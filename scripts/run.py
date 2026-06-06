@@ -35,7 +35,11 @@ def _extract_text(content) -> str:
 
 def _auto_approve(action_requests: list) -> dict:
     for req in action_requests:
-        print(f"\n[auto-approve] {req.get('name', 'unknown')}")
+        description = req.get("description", "")
+        if description:
+            print(f"\n[auto-approve] {description}")
+        else:
+            print(f"\n[auto-approve] {req.get('name', 'unknown')}")
     return {"decisions": [{"type": "approve"} for _ in action_requests]}
 
 

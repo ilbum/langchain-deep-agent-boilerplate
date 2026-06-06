@@ -7,7 +7,7 @@ class SubagentConfig:
     description: str
     system_prompt: str
     tools: list
-    interrupt_on: dict[str, bool] = field(default_factory=dict)
+    interrupt_on: dict[str, bool | dict] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.name:

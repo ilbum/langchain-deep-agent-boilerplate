@@ -1,5 +1,43 @@
+import re
+
 from deep_agent.agents.types import SubagentConfig
 from deep_agent.tools.reflect.base import think_tool
+
+
+def _describe_execute(tool_call, state, runtime) -> str:
+    command = tool_call["args"].get("command", "")
+
+    # Extract heredoc body
+    match = re.search(r"<<['\"]?PY['\"]?\n(.*?)\nPY\s*$", command, re.DOTALL)
+    body = match.group(1) if match else command
+
+    parts = []
+
+    urls = re.findall(r"(?:new_tab|goto_url)\(['\"]([^'\"]+)['\"]", body)
+    if urls:
+        parts.append(f"navigate to {urls[0]}")
+
+    if "capture_screenshot" in body:
+        parts.append("take screenshot")
+    if re.search(r"\bjs\(", body):
+        parts.append("run JavaScript")
+    if "click_at_xy" in body:
+        parts.append("click element")
+    if "page_info" in body:
+        parts.append("get page info")
+    if "write_file" in body:
+        parts.append("save to file")
+
+    if parts:
+        return f"Browser agent wants to: {', '.join(parts)}"
+
+    # Fallback: first non-comment non-blank line
+    for line in body.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            return f"Browser execute: {line[:200]}"
+
+    return "Browser execute command"
 
 _INSTRUCTIONS = """You are a browser automation agent. You control a web browser to complete tasks by calling the `execute` tool with browser-harness commands.
 
@@ -66,5 +104,10 @@ def subagent() -> SubagentConfig:
         description="Navigates websites, fills forms, and extracts information from web pages via browser automation",
         system_prompt=_INSTRUCTIONS,
         tools=[think_tool],
-        interrupt_on={"execute": True},
+        interrupt_on={
+            "execute": {
+                "allowed_decisions": ["approve", "edit", "reject", "respond"],
+                "description": _describe_execute,
+            }
+        },
     )
