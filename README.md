@@ -1,8 +1,8 @@
 # deep-agent-boilerplate
 
-A production-ready boilerplate for building **Deep Agents** — multi-step AI agents that gather information, synthesize it, and take action — on top of LangGraph and LangChain. 
+A boilerplate for building production Deep Agents on top of [LangChain Deep Agents](https://github.com/langchain-ai/deepagents) — the SDK that handles middleware wiring, filesystem backends, sub-agent delegation, and HITL so you focus on capabilities, not plumbing.
 
-Deep Agents go beyond simple ReAct loops. They delegate specialized work to isolated sub-agents, offload context to a virtual filesystem, and coordinate complex multi-step workflows while keeping each agent's context lean and focused.
+The boilerplate is structured as an **agent harness with an adapter pattern**: each tool capability (search, documents, browser) is a typed adapter that can be swapped at assembly time without touching agent logic. Sub-agents are discrete modules that declare their tools and interrupt behaviour; the orchestrator coordinates them without knowing their internals.
 
 ---
 
